@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "d2b-asl"
+version = "0.1.0"
+description = "Plugin for the d2b package to handle ASL data"
+authors = ["Andrew Ross <andrew.ross.mail@gmail.com>"]
+
+readme = "README.md"
+
+keywords = ["neuroscience", "neuroimaging", "bids", "d2b", "plugin"]
+
+homepage = "https://github.com/d2b-dev/d2b-asl"
+repository = "https://github.com/d2b-dev/d2b-asl"
+documentation = "https://github.com/d2b-dev/d2b-asl"
+
+classifiers = [
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: Unix",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Typing :: Typed",
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"
+d2b = "^1.1.4"
+
+[tool.poetry.dev-dependencies]
+black = "^21.8b0"
+flake8 = "^3.9.2"
+pylint = "^2.10.2"
+reorder-python-imports = "^2.6.0"
+pre-commit = "^2.14.1"
+bump2version = "^1.0.1"
+
+[tool.poetry.plugins.d2b]
+"asl" = "d2b_asl"
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
