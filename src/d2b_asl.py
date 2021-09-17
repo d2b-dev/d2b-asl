@@ -4,13 +4,16 @@ import argparse
 import csv
 import json
 import logging
+from dataclasses import dataclass
 from io import StringIO
 from itertools import chain
 from pathlib import Path
 from typing import Any
 from typing import TYPE_CHECKING
 
+import nibabel as nib
 from d2b.hookspecs import hookimpl
+from d2b.utils import first_nii
 
 if TYPE_CHECKING:
     from d2b.d2b import D2B, Acquisition
@@ -19,6 +22,8 @@ if TYPE_CHECKING:
 __version__ = "1.0.2"
 
 ASL_CONTEXT_DESCRIPTION_PROPERTY = "aslContext"
+BIDS_LABELS = ["cbf", "control", "deltam", "label", "m0scan"]
+ALLOWED_NON_BIDS_LABELS = ["discard"]
 
 
 @hookimpl
@@ -67,14 +72,15 @@ def generate_context_files(
     asl_acquisitions = find_asl_acquisitions(acquisitions)
     for acq in asl_acquisitions:
         logger.info(_msg_asl_found(acq))
-        asl_context = AslContext(acq)
-        try:
-            asl_context.write_bids_tsv(out_dir)
-            if include_aslcontext_json:
-                asl_context.write_bids_json(out_dir)
-        except ValueError as e:
-            logger.warning(str(e))
-            continue
+        aslcontext = Aslcontext.from_acquisition(acq)
+        aslcontext.write_bids_tsv(out_dir)
+        if include_aslcontext_json:
+            aslcontext.write_bids_json(out_dir)
+        # successfully created the *_aslcontext files; edit the asl data (if necessary)
+        if aslcontext.should_discard_volumes():
+            logger.info(_msg_will_discard_volumes(acq, aslcontext))
+            asl_file = find_asl_file(out_dir, acq)
+            discard_volumes(asl_file, aslcontext)
 
 
 def find_asl_acquisitions(acquisitions: list[Acquisition]) -> list[Acquisition]:
@@ -86,31 +92,52 @@ def is_asl(acquisition: Acquisition) -> bool:
     return description.data_type == "perf"
 
 
-class AslContext:
-    def __init__(self, acquisition: Acquisition):
-        self.acquisition = acquisition
+class Aslcontext:
+    def __init__(self, labels: list[str], file_root: str | Path | None = None):
+        self.labels = labels
+        self.file_root = file_root
+
+    @classmethod
+    def from_acquisition(cls, acquisition: Acquisition):
+        try:
+            labels = acquisition.description.data[ASL_CONTEXT_DESCRIPTION_PROPERTY]
+            file_root = acquisition.dst_root_no_modality
+            return cls(labels, file_root)
+        except KeyError as e:
+            raise MissingAslcontextError(acquisition.description.index) from e
 
     @property
     def tsv_file(self) -> Path:
-        dst_root = self.acquisition.dst_root_no_modality
+        if self.file_root is None:
+            raise TypeError("Cannot write tsv file with NoneType file_root attribute.")
+        dst_root = Path(self.file_root)
         return dst_root.parent / f"{dst_root.stem}_aslcontext.tsv"
 
     @property
     def json_file(self) -> Path:
-        dst_root = self.acquisition.dst_root_no_modality
+        if self.file_root is None:
+            raise TypeError("Cannot write json file with NoneType file_root attribute.")
+        dst_root = Path(self.file_root)
         return dst_root.parent / f"{dst_root.stem}_aslcontext.json"
 
-    @property
-    def labels(self) -> list[str] | None:
-        description = self.acquisition.description
-        return description.data.get(ASL_CONTEXT_DESCRIPTION_PROPERTY)
+    def validate(self):
+        for label in self.labels:
+            if not (label in BIDS_LABELS or label in ALLOWED_NON_BIDS_LABELS):
+                raise InvalidAslcontextLabelError(label)
+
+    def tagged_labels(self) -> list[TaggedLabel]:
+        return [
+            TaggedLabel(label not in ALLOWED_NON_BIDS_LABELS, label)
+            for label in self.labels
+        ]
+
+    def should_discard_volumes(self) -> bool:
+        return any(not t.is_bids for t in self.tagged_labels())
 
     def tsv(self) -> StringIO:
-        if self.labels is None:
-            raise ValueError(_msg_asl_with_missing_labels(self.acquisition))
-
+        self.validate()
         f = StringIO()
-        records = [{"volume_type": label} for label in self.labels]
+        records = [{"volume_type": t.label} for t in self.tagged_labels() if t.is_bids]
         fieldnames = sorted(set(chain(*(r.keys() for r in records))))
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -121,7 +148,7 @@ class AslContext:
 
     def json(self) -> StringIO:
         f = StringIO()
-        json.dump(generate_asl_context_sidecar_content(), f, indent=2)
+        json.dump(generate_aslcontext_sidecar_content(), f, indent=2)
         f.seek(0)
         return f
 
@@ -144,7 +171,19 @@ class AslContext:
         return self.write_json(out_file)
 
 
-def generate_asl_context_sidecar_content():
+def discard_volumes(asl_file: str | Path, aslcontext: Aslcontext):
+    """Discard volumes from the `.nii[.gz]` file associated with this acquisition."""
+    keep_vols = [i for i, tl in enumerate(aslcontext.tagged_labels()) if tl.is_bids]
+    if len(keep_vols) == len(aslcontext.tagged_labels()):
+        # none of the volumes should be discarded, bail early
+        return
+    img: nib.Nifti1Image = nib.load(asl_file)
+    data = img.get_data()
+    _data = data[..., keep_vols]
+    nib.save(img.__class__(_data, img.affine, img.header), asl_file)
+
+
+def generate_aslcontext_sidecar_content():
     return {
         "volume_type": {
             "LongName": "Volume type",
@@ -161,6 +200,16 @@ def generate_asl_context_sidecar_content():
     }
 
 
+def find_asl_file(dataset_dir: str | Path, acquisition: Acquisition) -> Path:
+    asl_file = first_nii(dataset_dir / acquisition.dst_root)
+    if asl_file is None:
+        raise FileNotFoundError(
+            "Could not find ASL NIfTI file for the acquisition with "
+            f"dst_root [{acquisition.dst_root}]",
+        )
+    return asl_file
+
+
 def _msg_asl_found(acquisition: Acquisition):
     return (
         f"Found ASL acquisition associated with file [{acquisition.src_file}]. "
@@ -168,11 +217,39 @@ def _msg_asl_found(acquisition: Acquisition):
     )
 
 
-def _msg_asl_with_missing_labels(acquisition: Acquisition):
+def _msg_will_discard_volumes(acquisition: Acquisition, aslcontext: Aslcontext):
+    non_bids_labels = [
+        (i, t.label) for i, t in enumerate(aslcontext.tagged_labels()) if not t.is_bids
+    ]
+    reason_tpl = "volume at index [{i}] with label [{lab}]"
+    reasons = list(map(lambda x: reason_tpl.format(i=x[0], lab=x[1]), non_bids_labels))
+    reason_string = ",".join(reasons)
     return (
-        f"Acquisition associated with file [{acquisition.src_file}] (matching "
-        f"description at position [{acquisition.description.index}]) was "
-        "determined to be an ASL acquisition, but has no "
-        f"{ASL_CONTEXT_DESCRIPTION_PROPERTY!r} field. No "
-        "'*_aslcontext.tsv' file will be generated for this acquisition."
+        f"ASL context for acqusition [{acquisition.dst_root}] has non-BIDS-compliant "
+        f"aslContext labels. d2b-asl will remove volumes: {reason_string}"
     )
+
+
+@dataclass
+class TaggedLabel:
+    is_bids: bool
+    label: str
+
+
+class MissingAslcontextError(ValueError):
+    def __init__(self, description_index: int):
+        self.description_index = description_index
+        super().__init__(
+            f"Description at index [{self.description_index}] is missing the "
+            f"required property [{ASL_CONTEXT_DESCRIPTION_PROPERTY}]",
+        )
+
+
+class InvalidAslcontextLabelError(ValueError):
+    def __init__(self, label: str):
+        self.label = label
+        super().__init__(
+            f"Unknown aslcontext label [{self.label}]. BIDS-compliant "
+            f"labels are: {BIDS_LABELS!r}, d2b-asl also allows for the usage "
+            f"of {ALLOWED_NON_BIDS_LABELS!r}",
+        )
