@@ -43,7 +43,11 @@ def generate_context_files(
         except ValueError as e:
             logger.warning(str(e))
             continue
-        asl_context.write_bids_json(out_dir)
+        # NOTE: The line below is commented because this json file seems
+        #       to not be "valid" BIDS (according to bid-validator v1.8.0),
+        #       but this file is listed in the spec (?) is this a bug in
+        #       the validator?
+        # asl_context.write_bids_json(out_dir)
 
 
 def find_asl_acquisitions(acquisitions: list[Acquisition]) -> list[Acquisition]:
