@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "d2b-asl"
-version = "1.0.0"
+version = "1.0.1"
 description = "Plugin for the d2b package to handle ASL data"
 authors = ["Andrew Ross <andrew.ross.mail@gmail.com>"]
 

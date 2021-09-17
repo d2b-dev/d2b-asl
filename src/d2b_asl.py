@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from d2b.d2b import D2B, Acquisition
 
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 ASL_CONTEXT_DESCRIPTION_PROPERTY = "aslContext"
 
