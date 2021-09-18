@@ -72,14 +72,20 @@ def generate_context_files(
     asl_acquisitions = find_asl_acquisitions(acquisitions)
     for acq in asl_acquisitions:
         logger.info(_msg_asl_found(acq))
+        # create the context object
         aslcontext = Aslcontext.from_acquisition(acq)
+        # find the nii file for this acquisition
+        asl_file = find_asl_file(out_dir, acq)
+        # validate the aslContext
+        aslcontext.validate(asl_file)
+        # write the tsv file
         aslcontext.write_bids_tsv(out_dir)
+        # write the json file (if asked for)
         if include_aslcontext_json:
             aslcontext.write_bids_json(out_dir)
-        # successfully created the *_aslcontext files; edit the asl data (if necessary)
+        # edit the asl data (if necessary)
         if aslcontext.should_discard_volumes():
             logger.info(_msg_will_discard_volumes(acq, aslcontext))
-            asl_file = find_asl_file(out_dir, acq)
             discard_volumes(asl_file, aslcontext)
 
 
@@ -120,7 +126,11 @@ class Aslcontext:
         dst_root = Path(self.file_root)
         return dst_root.parent / f"{dst_root.stem}_aslcontext.json"
 
-    def validate(self):
+    def validate(self, asl_file: str | Path):
+        img: nib.Nifti1Image = nib.load(asl_file)
+        nvols, nlabels = img.shape[-1], len(self.labels)
+        if nvols != nlabels:
+            raise AslContextConfigurationError(asl_file, nvols, nlabels)
         for label in self.labels:
             if not (label in BIDS_LABELS or label in ALLOWED_NON_BIDS_LABELS):
                 raise InvalidAslcontextLabelError(label)
@@ -135,7 +145,6 @@ class Aslcontext:
         return any(not t.is_bids for t in self.tagged_labels())
 
     def tsv(self) -> StringIO:
-        self.validate()
         f = StringIO()
         records = [{"volume_type": t.label} for t in self.tagged_labels() if t.is_bids]
         fieldnames = sorted(set(chain(*(r.keys() for r in records))))
@@ -242,6 +251,18 @@ class MissingAslcontextError(ValueError):
         super().__init__(
             f"Description at index [{self.description_index}] is missing the "
             f"required property [{ASL_CONTEXT_DESCRIPTION_PROPERTY}]",
+        )
+
+
+class AslContextConfigurationError(ValueError):
+    def __init__(self, asl_file: str | Path, nvols: int, nlabels: int):
+        self.asl_file = asl_file
+        self.nvols = nvols
+        self.nlabels = nlabels
+        super().__init__(
+            f"File [{self.asl_file}] has a mismatch between the number of "
+            f"volumes in the acquisition [{self.nvols}] and the number of "
+            f"volume_type labels [{self.nlabels}] in the associated description",
         )
 
 
