@@ -74,7 +74,7 @@ There are two spots where you might be specifying arrays as field values in your
 
 1. fields in `SidecarChanges` - These are fields like `RepetitionTimePreparation`, `PostLabelingDelay` etc. which may or may not need to be arrays. If they _are_ arrays, then these arrays should have length equal to the number of volumes in the files **_output_** by d2b.
 
-Why 2. potentially different from 1. (`aslContext`)? In the event that `aslContext` has "discard" values in its array, the number of volumes in the output ASL data will be different than the number of volumes in the input data.
+Why are the lengths of the fields in item 2 potentially different from the lengths of `aslContext` in item 1? In the event that `aslContext` has "discard" values in its array, the number of volumes in the output ASL data will be different than the number of volumes in the input data.
 
 The lengths of any of the arrays in `SidecarChanges` should take these discarded volumes into account. For example, suppose we have:
 
