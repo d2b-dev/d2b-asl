@@ -36,7 +36,7 @@ d2b = "^1.1.4"
 nibabel = "^3.2.1"
 
 [tool.poetry.dev-dependencies]
-black = "^21.8b0"
+black = "^24.4.2"
 flake8 = "^3.9.2"
 pylint = "^2.10.2"
 reorder-python-imports = "^2.6.0"

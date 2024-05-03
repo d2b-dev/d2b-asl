@@ -128,7 +128,7 @@ class Aslcontext:
 
     def validate(self, asl_file: str | Path):
         img: nib.Nifti1Image = nib.load(asl_file)
-        nvols, nlabels = img.header['dim'][4], len(self.labels)
+        nvols, nlabels = img.header["dim"][4], len(self.labels)
         if nvols != nlabels:
             raise AslContextConfigurationError(asl_file, nvols, nlabels)
         for label in self.labels:
