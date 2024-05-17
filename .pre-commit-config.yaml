@@ -16,7 +16,7 @@ repos:
       - id: name-tests-test
       - id: requirements-txt-fixer
   - repo: https://github.com/psf/black
-    rev: 21.5b2
+    rev: 24.4.2
     hooks:
       - id: black
   - repo: https://github.com/PyCQA/flake8
@@ -28,12 +28,12 @@ repos:
           - "--max-complexity=10"
           - "--max-line-length=88"
   - repo: https://github.com/asottile/reorder_python_imports
-    rev: v2.5.0
+    rev: v2.6.0
     hooks:
       - id: reorder-python-imports
         args: [--py3-plus]
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.19.0
+    rev: v3.15.2
     hooks:
       - id: pyupgrade
         args: [--py36-plus]

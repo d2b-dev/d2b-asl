@@ -95,7 +95,7 @@ def find_asl_acquisitions(acquisitions: list[Acquisition]) -> list[Acquisition]:
 
 def is_asl(acquisition: Acquisition) -> bool:
     description = acquisition.description
-    return description.data_type == "perf"
+    return description.modality_label == "_asl"
 
 
 class Aslcontext:
@@ -128,7 +128,7 @@ class Aslcontext:
 
     def validate(self, asl_file: str | Path):
         img: nib.Nifti1Image = nib.load(asl_file)
-        nvols, nlabels = img.shape[-1], len(self.labels)
+        nvols, nlabels = img.header["dim"][4], len(self.labels)  # type: ignore
         if nvols != nlabels:
             raise AslContextConfigurationError(asl_file, nvols, nlabels)
         for label in self.labels:

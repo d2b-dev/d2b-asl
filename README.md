@@ -3,6 +3,8 @@
 Plugin for the d2b package to handle ASL data
 
 [![PyPI Version](https://img.shields.io/pypi/v/d2b-asl.svg)](https://pypi.org/project/d2b-asl/)
+[![Type Check](https://github.com/d2b-dev/d2b-asl/actions/workflows/type-check.yaml/badge.svg)](https://github.com/d2b-dev/d2b-asl/actions/workflows/type-check.yaml)
+[![Code Style](https://github.com/d2b-dev/d2b-asl/actions/workflows/lint.yaml/badge.svg)](https://github.com/d2b-dev/d2b-asl/actions/workflows/lint.yaml)
 
 ## Installation
 

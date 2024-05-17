@@ -7,21 +7,21 @@ jobs:
     name: "Type Check Code Base"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: "Set up Python 3.8"
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: "Install Dependencies"
         run: |
           python -m pip install --upgrade pip
-          pip install poetry
+          pip install poetry==1.8.2
           poetry config virtualenvs.create false
-          poetry install --no-interaction --no-dev
+          poetry install --no-interaction --only main
       - name: "Set up Node.js"
-        uses: actions/setup-node@v1
+        uses: actions/setup-node@v4
         with:
-          node-version: "12.x"
+          node-version: "20.x"
       - name: "Install Pyright"
         run: |
           npm install -g pyright
