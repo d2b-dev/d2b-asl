@@ -7,14 +7,16 @@ jobs:
     name: "Lint Code Base"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # super-linter needs the full git history to get the
+          # list of files that changed across commits
+          fetch-depth: 0
       - name: Set up Python 3.8
         uses: actions/setup-python@v5
         with:
           python-version: 3.8
-          # super-linter needs the full git history to get the
-          # list of files that changed across commits
-          fetch-depth: 0
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
         with:
@@ -34,9 +36,9 @@ jobs:
       - name: Run GitHub super-linter
         uses: github/super-linter/slim@v6
         env:
+          DEFAULT_BRANCH: master
           # To report GitHub Actions status checks
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DEFAULT_BRANCH: master
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_YAML: true
           VALIDATE_JSON: true
